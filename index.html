@@ -2,61 +2,73 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Que Timer</title>
 
 <style>
+:root{ color-scheme: dark; }
 body{
   margin:0;
   background:#000;
   color:#fff;
-  font-family:system-ui,-apple-system,sans-serif;
+  font-family:system-ui,-apple-system,"Hiragino Sans",sans-serif;
 }
-.wrap{ padding:16px; display:flex; flex-direction:column; gap:14px; min-height:100vh; box-sizing:border-box; }
-h1{ margin:0; font-size:22px; }
-
-.topbar{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
+.wrap{ padding:16px; display:flex; flex-direction:column; gap:12px; min-height:100vh; box-sizing:border-box; }
+h1{ margin:0 0 6px 0; font-size:22px; letter-spacing:.2px; }
+.row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
 
 button{
+  font-size:16px;
   padding:10px 14px;
-  border-radius:8px;
+  border-radius:10px;
   border:1px solid #444;
   background:#111;
   color:#fff;
 }
 button.primary{ border-color:#888; }
-button.admin{ background:#083; border-color:#2a6; }
-button.danger{ background:#200; border-color:#600; }
+button.admin{ border-color:#2a6; background:#083; }
+button.danger{ border-color:#600; background:#200; }
 
 .card{
   border:1px solid #333;
-  border-radius:10px;
+  border-radius:12px;
   padding:12px;
   background:#0b0b0b;
 }
 
+.label{ opacity:.7; font-size:13px; }
+.val{ font-size:28px; font-variant-numeric:tabular-nums; margin-top:6px; }
+
 textarea{
   width:100%;
-  min-height:200px;
+  min-height:240px;
   background:#050505;
   color:#fff;
   border:1px solid #333;
-  border-radius:10px;
+  border-radius:12px;
   padding:12px;
   box-sizing:border-box;
   font-size:15px;
+  line-height:1.5;
 }
+textarea::placeholder{ color:#9a9a9a; }
 
-.small{ font-size:13px; opacity:.8; }
+.small{ font-size:13px; opacity:.75; line-height:1.55; }
 
-.val{ font-size:28px; font-variant-numeric:tabular-nums; }
-
-.hidden{ display:none !important; }
-
+.overlay{
+  position:fixed;
+  inset:0;
+  background:#000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+.big{
+  font-size:min(18vw,120px);
+  font-weight:800;
+  text-align:center;
+}
 .signature{
   position:fixed;
   right:14px;
@@ -64,235 +76,365 @@ textarea{
   font-size:11px;
   letter-spacing:1.5px;
   opacity:.45;
+  font-weight:500;
+  pointer-events:none;
+  user-select:none;
 }
+
+pre{
+  margin:10px 0 0 0;
+  padding:10px 12px;
+  border:1px solid #2a2a2a;
+  border-radius:10px;
+  background:#070707;
+  overflow:auto;
+  white-space:pre-wrap;
+}
+
+.hidden{ display:none !important; }
 </style>
 </head>
 
 <body>
 
-<!-- ========== 第一画面（入力） ========== -->
+<!-- ========== 入力ページ（初期表示） ========== -->
 <div id="screenEdit" class="wrap">
+  <h1>Que Timer</h1>
 
-  <div class="topbar">
-    <h1>Que Timer</h1>
-    <button id="helpBtn">使い方</button>
+  <div class="row">
+    <button id="helpBtn">❓ 使い方</button>
+    <button id="saveAdminBtn" class="admin">🔐 保存（管理者リンク生成）</button>
   </div>
 
   <div class="card">
-    <textarea id="cueText" placeholder="ここにキューを入力"></textarea>
+    <div class="label">キュー入力</div>
+    <textarea id="cueText" placeholder="ここにキューを入力（例：7, ①を起動）"></textarea>
+    <div class="small" style="margin-top:10px;">
+      ・形式：<b>秒数, 指示</b>（小数OK）<br>
+      ・# から始まる行はコメント（無視）
+    </div>
   </div>
-
-  <div class="small">
-    ・形式：秒数, 指示<br>
-    ・小数OK（例：18.5）<br>
-    ・# から始まる行はコメント（無視）<br>
-    ・保存ボタンを押してください（開き直すと空になります）
-  </div>
-
-  <button id="saveBtn" class="admin">保存（管理者リンク生成）</button>
-
 </div>
 
-
-<!-- ========== 第二画面（タイマー） ========== -->
+<!-- ========== タイマー画面 ========== -->
 <div id="screenTimer" class="wrap hidden">
+  <h1>Que Timer</h1>
 
-  <div class="topbar">
-    <h1>Que Timer</h1>
-    <button id="helpBtn2">使い方</button>
-  </div>
-
-  <div>
-    <button id="homeBtn">ホーム</button>
-    <button id="editBtn" class="hidden">編集</button>
-  </div>
-
-  <div class="card">
-    <div>経過時間</div>
-    <div id="elapsed" class="val">00:00.0</div>
-  </div>
-
-  <div class="card">
-    <div>次のキューまで</div>
-    <div id="remain" class="val">--</div>
-  </div>
-
-  <div class="card">
-    <div>次のキュー</div>
-    <div id="nextCue">--</div>
-  </div>
-
-  <div class="card">
-    <div>キュー一覧</div>
-    <pre id="cueList"></pre>
-  </div>
-
-  <div>
-    <button id="startBtn" class="primary">Start</button>
-    <button id="pauseBtn">Pause</button>
+  <div class="row">
+    <button id="startBtn" class="primary">▶ Start</button>
+    <button id="pauseBtn">⏸ Pause</button>
     <button id="resetBtn" class="danger">Reset</button>
+    <button id="helpBtn2">❓ 使い方</button>
+
+    <!-- 管理者リンクのみ表示（タイマーから編集へ戻る） -->
+    <button id="backToEditBtn" class="hidden">✎ 編集へ</button>
+
+    <!-- 管理者/閲覧者どちらでも押せば「キュー空の入力ページ」へ -->
+    <button id="backEmptyBtn">← キュー入力へ（保存なし）</button>
   </div>
 
+  <div class="card">
+    <div class="label">経過時間</div>
+    <div class="val" id="elapsed">00:00.0</div>
+  </div>
+
+  <div class="card">
+    <div class="label">次のキューまで</div>
+    <div class="val" id="toNext">--</div>
+  </div>
+
+  <div class="card">
+    <div class="label">次のキュー</div>
+    <div class="val" id="nextCue">--</div>
+  </div>
+
+  <div class="card">
+    <div class="label">このリンクの権限</div>
+    <div class="small" id="roleText">--</div>
+  </div>
 </div>
 
-
-<!-- ========== 使い方 ========== -->
+<!-- ========== ヘルプ画面 ========== -->
 <div id="screenHelp" class="wrap hidden">
-  <h1>使い方</h1>
+  <h1>Que Timer</h1>
 
   <div class="card">
-    入力形式：<br>
-    秒数, 指示<br><br>
-    例：<br>
-    7, ①を起動<br>
-    18.5, マスクアウト
+    <p><b>入力形式：</b><br>
+    「開始からの秒数, 指示内容」で入力します。</p>
+    <p class="small">
+      ・秒数は開始からの絶対秒<br>
+      ・小数使用可（例：18.5）<br>
+      ・# で始まる行はコメント（無視）
+    </p>
   </div>
 
-  <button id="closeHelpBtn">戻る</button>
+  <div class="card">
+    <p><b>例１</b></p>
+    <pre># ===== 例１ =====
+
+7, ①を起動
+14, ②を起動
+18.5, ③を起動</pre>
+  </div>
+
+  <div class="card">
+    <p><b>例２</b></p>
+    <pre># ===== 例２ =====
+
+5, ピンC.I.
+348, ピンマスクアウト</pre>
+  </div>
+
+  <div class="card">
+    <p><b>リンク運用（重要）</b></p>
+    <p class="small">
+      ・<b>通常URL</b>：パラメータ無し。開き直すとキューは空。<br>
+      ・<b>閲覧リンク</b>（c=...）：閲覧のみ（タイマー実行用 / 編集不可）。<br>
+      ・<b>管理者リンク</b>（c=...&owner=1）：編集可能。共有すれば複数人で管理できます。
+    </p>
+  </div>
+
+  <button id="closeHelpBtn">← 戻る</button>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="big" id="bigText"></div>
 </div>
 
 <div class="signature">CB · Que Timer</div>
 
 <script>
-const URL_PARAM="c";
-const OWNER_PARAM="owner";
+const URL_PARAM = "c";
+const OWNER_PARAM = "owner";
+const SHOW_MS = 900;
 
-const $=id=>document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 
-const screenEdit=$("screenEdit");
-const screenTimer=$("screenTimer");
-const screenHelp=$("screenHelp");
+const screenEdit = $("screenEdit");
+const screenTimer = $("screenTimer");
+const screenHelp = $("screenHelp");
 
-const cueTextEl=$("cueText");
-const cueListEl=$("cueList");
+const cueTextEl = $("cueText");
 
-const saveBtn=$("saveBtn");
-const homeBtn=$("homeBtn");
-const editBtn=$("editBtn");
+const helpBtn = $("helpBtn");
+const helpBtn2 = $("helpBtn2");
+const closeHelpBtn = $("closeHelpBtn");
 
-const startBtn=$("startBtn");
-const pauseBtn=$("pauseBtn");
-const resetBtn=$("resetBtn");
+const saveAdminBtn = $("saveAdminBtn");
 
-const helpBtn=$("helpBtn");
-const helpBtn2=$("helpBtn2");
-const closeHelpBtn=$("closeHelpBtn");
+const startBtn = $("startBtn");
+const pauseBtn = $("pauseBtn");
+const resetBtn = $("resetBtn");
+const backToEditBtn = $("backToEditBtn");
+const backEmptyBtn = $("backEmptyBtn");
 
-const elapsedEl=$("elapsed");
-const remainEl=$("remain");
-const nextCueEl=$("nextCue");
+const elapsedEl = $("elapsed");
+const toNextEl = $("toNext");
+const nextCueEl = $("nextCue");
+const roleText = $("roleText");
 
-let cues=[];
-let running=false;
-let startTime=0;
-let carried=0;
-let nextIndex=0;
-let rafId=null;
+const overlay = $("overlay");
+const bigText = $("bigText");
 
-function toB64(s){return btoa(unescape(encodeURIComponent(s)));}
-function fromB64(s){return decodeURIComponent(escape(atob(s)));}
+let cues = [];
+let running = false;
+let startTime = 0;
+let carried = 0;
+let nextIndex = 0;
+let rafId = null;
+let showUntil = 0;
 
-function show(screen){
+function toB64(str){ return btoa(unescape(encodeURIComponent(str))); }
+function fromB64(b64){ return decodeURIComponent(escape(atob(b64))); }
+
+function baseUrl(){
+  return location.origin + location.pathname;
+}
+
+async function copyToClipboard(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    return true;
+  }catch{
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  }
+}
+
+function show(which){
   screenEdit.classList.add("hidden");
   screenTimer.classList.add("hidden");
   screenHelp.classList.add("hidden");
-  if(screen==="edit") screenEdit.classList.remove("hidden");
-  if(screen==="timer") screenTimer.classList.remove("hidden");
-  if(screen==="help") screenHelp.classList.remove("hidden");
+  if(which === "edit") screenEdit.classList.remove("hidden");
+  if(which === "timer") screenTimer.classList.remove("hidden");
+  if(which === "help") screenHelp.classList.remove("hidden");
 }
 
-function parseCues(text){
-  const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l);
-  const arr=[];
+function parseCuesFromText(text){
+  const lines = (text || "")
+    .split(/\r?\n/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const parsed = [];
   for(const line of lines){
     if(line.startsWith("#")) continue;
-    const parts=line.split(",");
-    if(parts.length<2) throw new Error("形式エラー："+line);
-    const t=parseFloat(parts[0]);
-    if(isNaN(t)) throw new Error("秒数エラー："+line);
-    const label=parts.slice(1).join(",").trim();
-    if(!label) throw new Error("指示が空："+line);
-    arr.push({t,label});
+    const parts = line.split(",");
+    const t = parseFloat(parts[0]);
+    const label = parts.slice(1).join(",").trim();
+    if(!isNaN(t) && label) parsed.push({ tSec: t, text: label });
   }
-  arr.sort((a,b)=>a.t-b.t);
-  return arr;
+  parsed.sort((a,b)=>a.tSec-b.tSec);
+  return parsed;
 }
 
 function fmt(ms){
-  const s=ms/1000;
-  const m=Math.floor(s/60);
-  const sec=s-m*60;
-  const si=Math.floor(sec);
-  const d=Math.floor((sec-si)*10);
+  const s = ms/1000;
+  const m = Math.floor(s/60);
+  const sec = s - m*60;
+  const si = Math.floor(sec);
+  const d = Math.floor((sec-si)*10);
   return String(m).padStart(2,"0")+":"+String(si).padStart(2,"0")+"."+d;
 }
 
-function nowMs(){return running?carried+(performance.now()-startTime):carried;}
+function nowMs(){ return running ? carried + (performance.now() - startTime) : carried; }
 
 function tick(){
-  const e=nowMs();
-  elapsedEl.textContent=fmt(e);
+  const e = nowMs();
+  elapsedEl.textContent = fmt(e);
 
-  const next=cues[nextIndex];
+  const next = cues[nextIndex];
   if(next){
-    const remain=next.t*1000-e;
-    remainEl.textContent=remain>0?(remain/1000).toFixed(1):"0.0";
-    nextCueEl.textContent=next.t+"s : "+next.label;
-    if(remain<=0) nextIndex++;
+    const remain = next.tSec*1000 - e;
+    toNextEl.textContent = remain>0 ? (remain/1000).toFixed(1) : "0.0";
+    nextCueEl.textContent = next.tSec + "s : " + next.text;
+
+    if(remain <= 0){
+      bigText.textContent = next.text;
+      overlay.style.display = "flex";
+      showUntil = performance.now() + SHOW_MS;
+      nextIndex++;
+    }
   }else{
-    remainEl.textContent="--";
-    nextCueEl.textContent="--";
+    toNextEl.textContent = "--";
+    nextCueEl.textContent = "--";
   }
-  rafId=requestAnimationFrame(tick);
+
+  if(overlay.style.display==="flex" && performance.now() >= showUntil){
+    overlay.style.display = "none";
+  }
+
+  rafId = requestAnimationFrame(tick);
 }
 
-saveBtn.onclick=()=>{
-  const text=cueTextEl.value.trim();
-  if(!text){alert("キューが空です");return;}
-  try{
-    parseCues(text);
-  }catch(e){
-    alert(e.message);
+function startTimer(){
+  if(!cues.length){
+    alert("キューが空です。\n例：7, ①を起動");
     return;
   }
-  const url=new URL(location.origin+location.pathname);
-  url.searchParams.set(URL_PARAM,toB64(text));
-  url.searchParams.set(OWNER_PARAM,"1");
-  navigator.clipboard.writeText(url.toString());
-  location.href=url.toString();
-};
-
-homeBtn.onclick=()=>location.href=location.origin+location.pathname;
-
-editBtn.onclick=()=>{
-  show("edit");
-  cueTextEl.value=fromB64(new URLSearchParams(location.search).get(URL_PARAM)||"");
-};
-
-startBtn.onclick=()=>{
-  if(!cues.length){alert("キューなし");return;}
-  running=true;
-  startTime=performance.now();
-  rafId=requestAnimationFrame(tick);
-};
-pauseBtn.onclick=()=>{running=false;carried=nowMs();cancelAnimationFrame(rafId);};
-resetBtn.onclick=()=>{running=false;carried=0;nextIndex=0;};
-
-helpBtn.onclick=()=>show("help");
-helpBtn2.onclick=()=>show("help");
-closeHelpBtn.onclick=()=>applyFromUrl();
-
-function applyFromUrl(){
-  const params=new URLSearchParams(location.search);
-  const c=params.get(URL_PARAM);
-  const isOwner=params.get(OWNER_PARAM)==="1";
-  if(!c){show("edit");return;}
-  cues=parseCues(fromB64(c));
-  cueListEl.textContent=fromB64(c);
-  if(isOwner) editBtn.classList.remove("hidden");
-  show("timer");
+  running = true;
+  startTime = performance.now();
+  rafId = requestAnimationFrame(tick);
 }
 
+function pauseTimer(){
+  if(!running) return;
+  running = false;
+  carried = nowMs();
+  cancelAnimationFrame(rafId);
+}
+
+function resetTimer(){
+  pauseTimer();
+  carried = 0;
+  nextIndex = 0;
+  elapsedEl.textContent = "00:00.0";
+  toNextEl.textContent = "--";
+  nextCueEl.textContent = "--";
+  overlay.style.display = "none";
+}
+
+function applyFromUrl(){
+  const params = new URLSearchParams(location.search);
+  const c = params.get(URL_PARAM);
+  const isOwner = params.get(OWNER_PARAM) === "1";
+
+  if(!c){
+    cueTextEl.value = "";
+    show("edit");
+    return;
+  }
+
+  show("timer");
+
+  if(isOwner){
+    roleText.innerHTML = "🔐 <b>管理者</b>（このリンクを共有すると複数人で編集できます）";
+    backToEditBtn.classList.remove("hidden");
+  }else{
+    roleText.innerHTML = "👁 <b>閲覧</b>（タイマー実行のみ / 編集不可）";
+    backToEditBtn.classList.add("hidden");
+  }
+
+  let cueText = "";
+  try{ cueText = fromB64(c); }catch{ cueText = ""; }
+  cues = parseCuesFromText(cueText);
+  resetTimer();
+}
+
+function goToTimerWith(text, ownerFlag){
+  const u = new URL(baseUrl());
+  u.searchParams.set(URL_PARAM, toB64(text || ""));
+  if(ownerFlag) u.searchParams.set(OWNER_PARAM, "1");
+  location.href = u.toString();
+}
+
+/* ====== UI wiring ====== */
+helpBtn.onclick = () => show("help");
+helpBtn2.onclick = () => show("help");
+
+closeHelpBtn.onclick = () => {
+  applyFromUrl();
+};
+
+saveAdminBtn.onclick = async () => {
+  // 保存＝管理者リンク生成：コピーしてから、そのリンクへ遷移
+  const text = cueTextEl.value || "";
+  if(!text.trim()){
+    alert("キューが空です。\n例：7, ①を起動");
+    return;
+  }
+  const u = new URL(baseUrl());
+  u.searchParams.set(URL_PARAM, toB64(text));
+  u.searchParams.set(OWNER_PARAM, "1");
+  await copyToClipboard(u.toString());
+  location.href = u.toString();
+};
+
+startBtn.onclick = startTimer;
+pauseBtn.onclick = pauseTimer;
+resetBtn.onclick = resetTimer;
+
+backToEditBtn.onclick = () => {
+  // 管理者リンクからのみ：編集ページへ戻す（URLのキューを入力欄へ復元）
+  show("edit");
+  const params = new URLSearchParams(location.search);
+  const c = params.get(URL_PARAM);
+  if(c){
+    try{ cueTextEl.value = fromB64(c); }catch{}
+  }
+};
+
+backEmptyBtn.onclick = () => {
+  // 誰でも：キュー空の入力ページへ
+  location.href = baseUrl();
+};
+
+/* ====== Boot ====== */
 applyFromUrl();
 </script>
 
