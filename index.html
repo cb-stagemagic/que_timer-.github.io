@@ -53,8 +53,11 @@ textarea{
   font-size:15px;
   line-height:1.5;
 }
-textarea::placeholder{
-  color:#9a9a9a;
+textarea::placeholder{ color:#9a9a9a; }
+textarea.locked{
+  background:#111;
+  color:#888;
+  border-color:#222;
 }
 
 .overlay{
@@ -100,12 +103,12 @@ pre{
   white-space:pre-wrap;
 }
 .small-note{ font-size:13px; opacity:.8; }
+.notice{ font-size:13px; color:#f66; }
 </style>
 </head>
 
 <body>
 
-<!-- タイマー画面 -->
 <div id="screenTimer" class="wrap">
   <h1>Que Timer</h1>
 
@@ -136,57 +139,30 @@ pre{
   <div class="card">
     <div class="label">キュー入力</div>
     <textarea id="cueText" placeholder="ここにキューを入力"></textarea>
+    <div id="lockNotice" class="notice" style="display:none;">
+      ※ 閲覧モードでは編集できません（管理者リンクで開いてください）
+    </div>
   </div>
 
-  <!-- 管理者のみ表示 -->
   <div class="card" id="adminSaveCard" style="display:none;">
     <div class="label">管理者保存</div>
     <button id="saveBtn" class="primary">💾 保存（管理者のみ）</button>
-    <div class="small-note">※ 管理者リンク（owner=1）で開いた場合のみ表示されます。</div>
   </div>
 </div>
 
-<!-- ヘルプ画面 -->
 <div id="screenHelp" class="wrap" style="display:none;">
   <h1>Que Timer</h1>
-
-  <div class="card">
-    <p><b>入力形式：</b><br>
-    「開始からの秒数, 指示内容」で入力します。</p>
-
-    <p>・秒数は開始からの絶対秒<br>
-    ・小数使用可能（例：12.5）<br>
-    ・# を先頭に書くとコメント扱い</p>
-  </div>
-
-  <div class="card">
-    <p><b>例１</b></p>
-    <pre># ===== 例１ =====
-
-7, ①を起動
-14, ②を起動
-18.5, ③を起動</pre>
-  </div>
-
-  <div class="card">
-    <p><b>例２</b></p>
-    <pre># ===== 例２ =====
-
-5, ピンC.I.
-348, ピンマスクアウト</pre>
-  </div>
 
   <div class="card">
     <p><b>リンクの種類（重要）</b></p>
     <p>
       🔗 Copy link（閲覧）：<br>
       → 演目を共有するためのリンクです。<br>
-      → 保存ボタンは表示されません。<br><br>
+      → キューは編集できません。<br><br>
 
       🔐 Copy link（管理者）：<br>
       → 作成者のみ保持してください。<br>
-      → 保存ボタンが表示されます。<br>
-      → このリンクは他人に渡さないでください。
+      → キュー編集・保存が可能です。
     </p>
   </div>
 
@@ -201,15 +177,12 @@ pre{
 <div class="signature">CB · Que Timer</div>
 
 <script>
-const STORAGE_KEY="cueTimer.v5";
+const STORAGE_KEY="cueTimer.v6";
 const URL_PARAM="c";
 const OWNER_PARAM="owner";
 const SHOW_MS=900;
 
 const $=id=>document.getElementById(id);
-
-const screenTimer=$("screenTimer");
-const screenHelp=$("screenHelp");
 
 const startBtn=$("startBtn");
 const pauseBtn=$("pauseBtn");
@@ -220,37 +193,29 @@ const helpBtn=$("helpBtn");
 const backBtn=$("backBtn");
 const saveBtn=$("saveBtn");
 const adminSaveCard=$("adminSaveCard");
+const cueTextEl=$("cueText");
+const lockNotice=$("lockNotice");
 
 const elapsedEl=$("elapsed");
 const toNextEl=$("toNext");
 const nextCueEl=$("nextCue");
-const cueTextEl=$("cueText");
-
 const overlay=$("overlay");
 const bigText=$("bigText");
-const subText=$("subText");
 
 let cues=[],running=false,startTime=0,carried=0,nextIndex=0,rafId=null,showUntil=0;
-
-function showHelp(){ screenTimer.style.display="none"; screenHelp.style.display="flex"; }
-function showTimer(){ screenHelp.style.display="none"; screenTimer.style.display="flex"; }
-
-helpBtn.onclick=showHelp;
-backBtn.onclick=showTimer;
 
 function toB64(str){ return btoa(unescape(encodeURIComponent(str))); }
 function fromB64(b64){ return decodeURIComponent(escape(atob(b64))); }
 
 function parseCues(){
-  const raw = cueTextEl.value || "";
-  const lines = raw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const lines=(cueTextEl.value||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   const parsed=[];
   for(const line of lines){
     if(line.startsWith("#")) continue;
     const parts=line.split(",");
     const t=parseFloat(parts[0]);
     const text=parts.slice(1).join(",").trim();
-    if(!isNaN(t) && text) parsed.push({tSec:t, text});
+    if(!isNaN(t)&&text) parsed.push({tSec:t,text});
   }
   parsed.sort((a,b)=>a.tSec-b.tSec);
   cues=parsed;
@@ -265,30 +230,24 @@ function fmt(ms){
   return String(m).padStart(2,"0")+":"+String(si).padStart(2,"0")+"."+d;
 }
 
-function nowMs(){ return running ? carried+(performance.now()-startTime) : carried; }
+function nowMs(){ return running?carried+(performance.now()-startTime):carried; }
 
 function tick(){
   const e=nowMs();
   elapsedEl.textContent=fmt(e);
-
   const next=cues[nextIndex];
   if(next){
-    const remain=next.tSec*1000 - e;
-    toNextEl.textContent = remain>0 ? (remain/1000).toFixed(1) : "0.0";
-    nextCueEl.textContent = next.tSec + "s : " + next.text;
-
+    const remain=next.tSec*1000-e;
+    toNextEl.textContent=remain>0?(remain/1000).toFixed(1):"0.0";
+    nextCueEl.textContent=next.tSec+"s : "+next.text;
     if(remain<=0){
-      bigText.textContent = next.text;
+      bigText.textContent=next.text;
       overlay.style.display="flex";
-      showUntil = performance.now() + SHOW_MS;
+      showUntil=performance.now()+SHOW_MS;
       nextIndex++;
     }
-  }else{
-    toNextEl.textContent="--";
-    nextCueEl.textContent="--";
   }
-
-  if(overlay.style.display==="flex" && performance.now()>=showUntil){
+  if(overlay.style.display==="flex"&&performance.now()>=showUntil){
     overlay.style.display="none";
   }
   rafId=requestAnimationFrame(tick);
@@ -297,7 +256,7 @@ function tick(){
 startBtn.onclick=()=>{
   parseCues();
   if(!cues.length){
-    alert("キューを入力してください。\n例：7, ①を起動");
+    alert("キューを入力してください。");
     return;
   }
   running=true;
@@ -315,54 +274,48 @@ resetBtn.onclick=()=>{
   running=false;
   carried=0;
   nextIndex=0;
-  elapsedEl.textContent="00:00.0";
-  toNextEl.textContent="--";
-  nextCueEl.textContent="--";
   overlay.style.display="none";
-  parseCues();
 };
 
 copyViewBtn.onclick=async()=>{
   const u=new URL(location.href);
-  u.searchParams.set(URL_PARAM, toB64(cueTextEl.value || ""));
+  u.searchParams.set(URL_PARAM,toB64(cueTextEl.value||""));
   u.searchParams.delete(OWNER_PARAM);
   await navigator.clipboard.writeText(u.toString());
 };
 
 copyAdminBtn.onclick=async()=>{
   const u=new URL(location.href);
-  u.searchParams.set(URL_PARAM, toB64(cueTextEl.value || ""));
+  u.searchParams.set(URL_PARAM,toB64(cueTextEl.value||""));
   u.searchParams.set(OWNER_PARAM,"1");
   await navigator.clipboard.writeText(u.toString());
 };
 
-// 管理者判定
 const params=new URLSearchParams(location.search);
 const isOwner=params.get(OWNER_PARAM)==="1";
-if(isOwner){
+
+if(!isOwner){
+  cueTextEl.readOnly=true;
+  cueTextEl.classList.add("locked");
+  lockNotice.style.display="block";
+}else{
   adminSaveCard.style.display="block";
 }
 
 saveBtn.onclick=()=>{
-  alert("管理者保存しました（この端末に保存）");
+  localStorage.setItem(STORAGE_KEY,cueTextEl.value||"");
+  alert("管理者保存しました");
 };
 
-cueTextEl.oninput=()=>{
-  if(isOwner){
-    try{ localStorage.setItem(STORAGE_KEY, cueTextEl.value || ""); }catch{}
-  }
-};
-
-// URL優先
 const urlData=params.get(URL_PARAM);
 if(urlData){
   try{
-    cueTextEl.value = fromB64(urlData);
+    cueTextEl.value=fromB64(urlData);
     if(isOwner){
-      localStorage.setItem(STORAGE_KEY, cueTextEl.value || "");
+      localStorage.setItem(STORAGE_KEY,cueTextEl.value||"");
     }
   }catch{}
-}else{
+}else if(isOwner){
   const saved=localStorage.getItem(STORAGE_KEY);
   if(saved) cueTextEl.value=saved;
 }
