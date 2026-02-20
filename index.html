@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Stage Cue Timer</title>
+<title>Que Timer</title>
 
 <style>
 :root{ color-scheme: dark; }
@@ -14,6 +14,11 @@ body{
   font-family:system-ui,-apple-system,"Hiragino Sans",sans-serif;
 }
 .wrap{ padding:16px; display:flex; flex-direction:column; gap:12px; }
+h1{
+  margin:0 0 6px 0;
+  font-size:22px;
+  letter-spacing:0.2px;
+}
 button{
   font-size:16px;
   padding:10px 14px;
@@ -44,6 +49,11 @@ textarea{
   border-radius:12px;
   padding:12px;
   box-sizing:border-box;
+  font-size:15px;
+  line-height:1.5;
+}
+textarea::placeholder{
+  color:#9a9a9a;
 }
 
 .overlay{
@@ -68,6 +78,26 @@ textarea{
   font-size:18px;
   opacity:.8;
 }
+.signature{
+  position:fixed;
+  right:14px;
+  bottom:12px;
+  font-size:11px;
+  letter-spacing:1.5px;
+  opacity:.45;
+  font-weight:500;
+  pointer-events:none;
+  user-select:none;
+}
+pre{
+  margin:10px 0 0 0;
+  padding:10px 12px;
+  border:1px solid #2a2a2a;
+  border-radius:10px;
+  background:#070707;
+  overflow:auto;
+  white-space:pre-wrap;
+}
 </style>
 </head>
 
@@ -75,86 +105,89 @@ textarea{
 
 <!-- タイマー画面 -->
 <div id="screenTimer" class="wrap">
+  <h1>Que Timer</h1>
 
-<div>
-<button id="startBtn" class="primary">▶ Start</button>
-<button id="pauseBtn">⏸ Pause</button>
-<button id="resetBtn" class="danger">Reset</button>
-<button id="copyBtn">🔗 Copy link</button>
-<button id="helpBtn">❓ 使い方</button>
-</div>
+  <div>
+    <button id="startBtn" class="primary">▶ Start</button>
+    <button id="pauseBtn">⏸ Pause</button>
+    <button id="resetBtn" class="danger">Reset</button>
+    <button id="copyBtn">🔗 Copy link</button>
+    <button id="helpBtn">❓ 使い方</button>
+  </div>
 
-<div class="card">
-<div class="label">経過時間</div>
-<div class="val" id="elapsed">00:00.0</div>
-</div>
+  <div class="card">
+    <div class="label">経過時間</div>
+    <div class="val" id="elapsed">00:00.0</div>
+  </div>
 
-<div class="card">
-<div class="label">次のキューまで</div>
-<div class="val" id="toNext">--</div>
-</div>
+  <div class="card">
+    <div class="label">次のキューまで</div>
+    <div class="val" id="toNext">--</div>
+  </div>
 
-<div class="card">
-<div class="label">次のキュー</div>
-<div class="val" id="nextCue">--</div>
-</div>
+  <div class="card">
+    <div class="label">次のキュー</div>
+    <div class="val" id="nextCue">--</div>
+  </div>
 
-<div class="card">
-<div class="label">キュー入力</div>
-<textarea id="cueText"># ===== 例１ =====
-
-7, ①を起動
-14, ②を起動
-18.5, ③を起動
-
-# ===== 例２ =====
-
-5, ピンC.I.
-348, ピンマスクアウト
-</textarea>
-</div>
-
+  <div class="card">
+    <div class="label">キュー入力</div>
+    <textarea id="cueText" placeholder="ここにキューを入力"></textarea>
+  </div>
 </div>
 
 <!-- ヘルプ画面 -->
 <div id="screenHelp" class="wrap" style="display:none;">
+  <h1>Que Timer</h1>
 
-<h2>使い方</h2>
+  <div class="card">
+    <p><b>入力形式：</b><br>
+    「開始からの秒数, 指示内容」で入力します。</p>
 
-<div class="card">
-<p><b>入力形式：</b><br>
-開始からの秒数, 指示内容</p>
+    <p>・秒数は開始からの絶対秒<br>
+    ・小数使用可能（例：12.5）<br>
+    ・# を先頭に書くとコメント扱い</p>
+  </div>
 
-<p><b>例：</b></p>
-<pre>
+  <div class="card">
+    <p><b>例１</b></p>
+    <pre># ===== 例１ =====
+
 7, ①を起動
-18.5, マスクアウト
-</pre>
+14, ②を起動
+18.5, ③を起動</pre>
+  </div>
 
-<p>・秒数は開始からの絶対秒<br>
-・小数使用可能（例：12.5）<br>
-・# を先頭に書くとコメント扱い</p>
-</div>
+  <div class="card">
+    <p><b>例２</b></p>
+    <pre># ===== 例２ =====
 
-<div class="card">
-<p><b>ボタン説明：</b></p>
-<p>Start：開始<br>
-Pause：一時停止<br>
-Reset：時間リセット（キューは消えません）<br>
-Copy link：現在の設定をURL共有</p>
-</div>
+5, ピンC.I.
+348, ピンマスクアウト</pre>
+  </div>
 
-<button id="backBtn">← タイマーへ戻る</button>
+  <div class="card">
+    <p><b>ボタン説明：</b></p>
+    <p>
+      Start：開始<br>
+      Pause：一時停止<br>
+      Reset：時間リセット（キューは消えません）<br>
+      Copy link：現在の設定をURL共有
+    </p>
+  </div>
 
+  <button id="backBtn">← タイマーへ戻る</button>
 </div>
 
 <div class="overlay" id="overlay">
-<div class="big" id="bigText"></div>
-<div class="sub" id="subText"></div>
+  <div class="big" id="bigText"></div>
+  <div class="sub" id="subText"></div>
 </div>
 
+<div class="signature">CB · Que Timer</div>
+
 <script>
-const STORAGE_KEY="cueTimer.v2";
+const STORAGE_KEY="cueTimer.v4";
 const URL_PARAM="c";
 const SHOW_MS=900;
 
@@ -187,18 +220,19 @@ function showTimer(){ screenHelp.style.display="none"; screenTimer.style.display
 helpBtn.onclick=showHelp;
 backBtn.onclick=showTimer;
 
-function toB64(str){return btoa(unescape(encodeURIComponent(str)));}
-function fromB64(b64){return decodeURIComponent(escape(atob(b64)));}
+function toB64(str){ return btoa(unescape(encodeURIComponent(str))); }
+function fromB64(b64){ return decodeURIComponent(escape(atob(b64))); }
 
 function parseCues(){
-  const lines=cueTextEl.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const raw = cueTextEl.value || "";
+  const lines = raw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   const parsed=[];
   for(const line of lines){
     if(line.startsWith("#")) continue;
     const parts=line.split(",");
     const t=parseFloat(parts[0]);
     const text=parts.slice(1).join(",").trim();
-    if(!isNaN(t)&&text) parsed.push({tSec:t,text});
+    if(!isNaN(t) && text) parsed.push({tSec:t, text});
   }
   parsed.sort((a,b)=>a.tSec-b.tSec);
   cues=parsed;
@@ -213,24 +247,30 @@ function fmt(ms){
   return String(m).padStart(2,"0")+":"+String(si).padStart(2,"0")+"."+d;
 }
 
-function nowMs(){ return running?carried+(performance.now()-startTime):carried; }
+function nowMs(){ return running ? carried+(performance.now()-startTime) : carried; }
 
 function tick(){
   const e=nowMs();
   elapsedEl.textContent=fmt(e);
+
   const next=cues[nextIndex];
   if(next){
-    const remain=next.tSec*1000-e;
-    toNextEl.textContent=remain>0?(remain/1000).toFixed(1):"0.0";
-    nextCueEl.textContent=next.tSec+"s : "+next.text;
+    const remain=next.tSec*1000 - e;
+    toNextEl.textContent = remain>0 ? (remain/1000).toFixed(1) : "0.0";
+    nextCueEl.textContent = next.tSec + "s : " + next.text;
+
     if(remain<=0){
-      bigText.textContent=next.text;
+      bigText.textContent = next.text;
       overlay.style.display="flex";
-      showUntil=performance.now()+SHOW_MS;
+      showUntil = performance.now() + SHOW_MS;
       nextIndex++;
     }
+  }else{
+    toNextEl.textContent="--";
+    nextCueEl.textContent="--";
   }
-  if(overlay.style.display==="flex"&&performance.now()>=showUntil){
+
+  if(overlay.style.display==="flex" && performance.now()>=showUntil){
     overlay.style.display="none";
   }
   rafId=requestAnimationFrame(tick);
@@ -238,16 +278,21 @@ function tick(){
 
 startBtn.onclick=()=>{
   parseCues();
-  if(!cues.length) return;
+  if(!cues.length){
+    alert("キューを入力してください。\n例：7, ①を起動");
+    return;
+  }
   running=true;
   startTime=performance.now();
   rafId=requestAnimationFrame(tick);
 };
+
 pauseBtn.onclick=()=>{
   running=false;
   carried=nowMs();
   cancelAnimationFrame(rafId);
 };
+
 resetBtn.onclick=()=>{
   running=false;
   carried=0;
@@ -261,19 +306,30 @@ resetBtn.onclick=()=>{
 
 copyBtn.onclick=async()=>{
   const u=new URL(location.href);
-  u.searchParams.set(URL_PARAM,toB64(cueTextEl.value));
-  await navigator.clipboard.writeText(u.toString());
+  u.searchParams.set(URL_PARAM, toB64(cueTextEl.value || ""));
+  try{
+    await navigator.clipboard.writeText(u.toString());
+  }catch{
+    alert("コピーできませんでした。手動でコピーしてください:\n" + u.toString());
+  }
 };
 
-cueTextEl.oninput=()=>localStorage.setItem(STORAGE_KEY,cueTextEl.value);
+cueTextEl.oninput=()=>{
+  try{ localStorage.setItem(STORAGE_KEY, cueTextEl.value || ""); }catch{}
+};
 
-const urlData=new URLSearchParams(location.search).get(URL_PARAM);
+// URL優先 → なければ端末保存
+const urlData = new URLSearchParams(location.search).get(URL_PARAM);
 if(urlData){
-  cueTextEl.value=fromB64(urlData);
-  localStorage.setItem(STORAGE_KEY,cueTextEl.value);
+  try{
+    cueTextEl.value = fromB64(urlData);
+    localStorage.setItem(STORAGE_KEY, cueTextEl.value || "");
+  }catch{}
 }else{
-  const saved=localStorage.getItem(STORAGE_KEY);
-  if(saved) cueTextEl.value=saved;
+  try{
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if(saved && saved.trim()) cueTextEl.value = saved;
+  }catch{}
 }
 
 parseCues();
