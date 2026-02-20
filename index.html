@@ -29,6 +29,7 @@ button{
 }
 button.primary{ border-color:#888; }
 button.danger{ border-color:#600; background:#200; }
+button.admin{ border-color:#2a6; background:#083; }
 
 .card{
   border:1px solid #333;
@@ -69,6 +70,15 @@ textarea::placeholder{
   font-weight:800;
   text-align:center;
 }
+.sub{
+  position:fixed;
+  bottom:16px;
+  left:0;
+  right:0;
+  text-align:center;
+  font-size:18px;
+  opacity:.8;
+}
 .signature{
   position:fixed;
   right:14px;
@@ -89,6 +99,7 @@ pre{
   overflow:auto;
   white-space:pre-wrap;
 }
+.small-note{ font-size:13px; opacity:.8; }
 </style>
 </head>
 
@@ -102,7 +113,8 @@ pre{
     <button id="startBtn" class="primary">▶ Start</button>
     <button id="pauseBtn">⏸ Pause</button>
     <button id="resetBtn" class="danger">Reset</button>
-    <button id="copyBtn">🔗 Copy link</button>
+    <button id="copyViewBtn">🔗 Copy link（閲覧）</button>
+    <button id="copyAdminBtn" class="admin">🔐 Copy link（管理者）</button>
     <button id="helpBtn">❓ 使い方</button>
   </div>
 
@@ -125,6 +137,13 @@ pre{
     <div class="label">キュー入力</div>
     <textarea id="cueText" placeholder="ここにキューを入力"></textarea>
   </div>
+
+  <!-- 管理者のみ表示 -->
+  <div class="card" id="adminSaveCard" style="display:none;">
+    <div class="label">管理者保存</div>
+    <button id="saveBtn" class="primary">💾 保存（管理者のみ）</button>
+    <div class="small-note">※ 管理者リンク（owner=1）で開いた場合のみ表示されます。</div>
+  </div>
 </div>
 
 <!-- ヘルプ画面 -->
@@ -141,29 +160,33 @@ pre{
   </div>
 
   <div class="card">
-    <p><b>例1</b></p>
-    <pre>
+    <p><b>例１</b></p>
+    <pre># ===== 例１ =====
+
 7, ①を起動
 14, ②を起動
-18.5, ③を起動
-    </pre>
+18.5, ③を起動</pre>
   </div>
 
   <div class="card">
-    <p><b>例2</b></p>
-    <pre>
+    <p><b>例２</b></p>
+    <pre># ===== 例２ =====
+
 5, ピンC.I.
-348, ピンマスクアウト
-    </pre>
+348, ピンマスクアウト</pre>
   </div>
 
   <div class="card">
-    <p><b>ボタン説明：</b></p>
+    <p><b>リンクの種類（重要）</b></p>
     <p>
-      Start：開始<br>
-      Pause：一時停止<br>
-      Reset：時間リセット（キューは消えません）<br>
-      Copy link：現在の設定をURL共有
+      🔗 Copy link（閲覧）：<br>
+      → 演目を共有するためのリンクです。<br>
+      → 保存ボタンは表示されません。<br><br>
+
+      🔐 Copy link（管理者）：<br>
+      → 作成者のみ保持してください。<br>
+      → 保存ボタンが表示されます。<br>
+      → このリンクは他人に渡さないでください。
     </p>
   </div>
 
@@ -172,6 +195,7 @@ pre{
 
 <div class="overlay" id="overlay">
   <div class="big" id="bigText"></div>
+  <div class="sub" id="subText"></div>
 </div>
 
 <div class="signature">CB · Que Timer</div>
@@ -179,6 +203,7 @@ pre{
 <script>
 const STORAGE_KEY="cueTimer.v5";
 const URL_PARAM="c";
+const OWNER_PARAM="owner";
 const SHOW_MS=900;
 
 const $=id=>document.getElementById(id);
@@ -189,9 +214,12 @@ const screenHelp=$("screenHelp");
 const startBtn=$("startBtn");
 const pauseBtn=$("pauseBtn");
 const resetBtn=$("resetBtn");
-const copyBtn=$("copyBtn");
+const copyViewBtn=$("copyViewBtn");
+const copyAdminBtn=$("copyAdminBtn");
 const helpBtn=$("helpBtn");
 const backBtn=$("backBtn");
+const saveBtn=$("saveBtn");
+const adminSaveCard=$("adminSaveCard");
 
 const elapsedEl=$("elapsed");
 const toNextEl=$("toNext");
@@ -200,6 +228,7 @@ const cueTextEl=$("cueText");
 
 const overlay=$("overlay");
 const bigText=$("bigText");
+const subText=$("subText");
 
 let cues=[],running=false,startTime=0,carried=0,nextIndex=0,rafId=null,showUntil=0;
 
@@ -293,31 +322,49 @@ resetBtn.onclick=()=>{
   parseCues();
 };
 
-copyBtn.onclick=async()=>{
+copyViewBtn.onclick=async()=>{
   const u=new URL(location.href);
   u.searchParams.set(URL_PARAM, toB64(cueTextEl.value || ""));
-  try{
-    await navigator.clipboard.writeText(u.toString());
-  }catch{
-    alert("コピーできませんでした。手動でコピーしてください:\n" + u.toString());
-  }
+  u.searchParams.delete(OWNER_PARAM);
+  await navigator.clipboard.writeText(u.toString());
+};
+
+copyAdminBtn.onclick=async()=>{
+  const u=new URL(location.href);
+  u.searchParams.set(URL_PARAM, toB64(cueTextEl.value || ""));
+  u.searchParams.set(OWNER_PARAM,"1");
+  await navigator.clipboard.writeText(u.toString());
+};
+
+// 管理者判定
+const params=new URLSearchParams(location.search);
+const isOwner=params.get(OWNER_PARAM)==="1";
+if(isOwner){
+  adminSaveCard.style.display="block";
+}
+
+saveBtn.onclick=()=>{
+  alert("管理者保存しました（この端末に保存）");
 };
 
 cueTextEl.oninput=()=>{
-  try{ localStorage.setItem(STORAGE_KEY, cueTextEl.value || ""); }catch{}
+  if(isOwner){
+    try{ localStorage.setItem(STORAGE_KEY, cueTextEl.value || ""); }catch{}
+  }
 };
 
-const urlData = new URLSearchParams(location.search).get(URL_PARAM);
+// URL優先
+const urlData=params.get(URL_PARAM);
 if(urlData){
   try{
     cueTextEl.value = fromB64(urlData);
-    localStorage.setItem(STORAGE_KEY, cueTextEl.value || "");
+    if(isOwner){
+      localStorage.setItem(STORAGE_KEY, cueTextEl.value || "");
+    }
   }catch{}
 }else{
-  try{
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if(saved && saved.trim()) cueTextEl.value = saved;
-  }catch{}
+  const saved=localStorage.getItem(STORAGE_KEY);
+  if(saved) cueTextEl.value=saved;
 }
 
 parseCues();
