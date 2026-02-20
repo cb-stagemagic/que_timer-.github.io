@@ -68,10 +68,12 @@ textarea::placeholder{ color:#9a9a9a; }
   display:none;
   align-items:center;
   justify-content:center;
+  padding:24px;
 }
 .big{
   font-size:min(18vw,120px);
   font-weight:800;
+  text-align:center;
 }
 
 #cueList div{
@@ -84,6 +86,16 @@ textarea::placeholder{ color:#9a9a9a; }
 }
 #cueList .done{
   opacity:.4;
+}
+
+pre{
+  margin:10px 0 0 0;
+  padding:10px 12px;
+  border:1px solid #2a2a2a;
+  border-radius:10px;
+  background:#070707;
+  overflow:auto;
+  white-space:pre-wrap;
 }
 
 .signature{
@@ -138,6 +150,11 @@ textarea::placeholder{ color:#9a9a9a; }
   </div>
 
   <div class="card">
+    <div class="label">次のキューまで</div>
+    <div class="val" id="toNext">--</div>
+  </div>
+
+  <div class="card">
     <div class="label">次のキュー</div>
     <div class="val" id="nextCue">--</div>
   </div>
@@ -151,6 +168,48 @@ textarea::placeholder{ color:#9a9a9a; }
     <div class="label">このリンクの権限</div>
     <div class="small" id="roleText">--</div>
   </div>
+</div>
+
+<!-- ===== ヘルプ画面 ===== -->
+<div id="screenHelp" class="wrap hidden">
+  <h1>Que Timer</h1>
+
+  <div class="card">
+    <div class="label">入力形式</div>
+    <div class="small">
+      「開始からの秒数, 指示内容」<br>
+      ・小数OK（例：18.5）<br>
+      ・# で始まる行はコメント（無視）
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">例１</div>
+    <pre># ===== 例１ =====
+
+7, ①を起動
+14, ②を起動
+18.5, ③を起動</pre>
+  </div>
+
+  <div class="card">
+    <div class="label">例２</div>
+    <pre># ===== 例２ =====
+
+5, ピンC.I.
+348, ピンマスクアウト</pre>
+  </div>
+
+  <div class="card">
+    <div class="label">リンク運用</div>
+    <div class="small">
+      ・通常URL：パラメータ無し。開き直すとキューは空。<br>
+      ・閲覧リンク（c=...）：閲覧のみ（実行用）<br>
+      ・管理者リンク（c=...&owner=1）：編集可能（共有すれば複数人で管理）
+    </div>
+  </div>
+
+  <button id="closeHelpBtn">← 戻る</button>
 </div>
 
 <div class="overlay" id="overlay">
@@ -168,9 +227,15 @@ const $=id=>document.getElementById(id);
 
 const screenEdit=$("screenEdit");
 const screenTimer=$("screenTimer");
+const screenHelp=$("screenHelp");
+
 const cueTextEl=$("cueText");
 const cueListEl=$("cueList");
 const roleText=$("roleText");
+
+const helpBtn=$("helpBtn");
+const helpBtn2=$("helpBtn2");
+const closeHelpBtn=$("closeHelpBtn");
 
 const saveAdminBtn=$("saveAdminBtn");
 const copyViewBtn=$("copyViewBtn");
@@ -182,6 +247,7 @@ const pauseBtn=$("pauseBtn");
 const resetBtn=$("resetBtn");
 
 const elapsedEl=$("elapsed");
+const toNextEl=$("toNext");
 const nextCueEl=$("nextCue");
 
 const overlay=$("overlay");
@@ -190,147 +256,177 @@ const bigText=$("bigText");
 let cues=[],running=false,startTime=0,carried=0;
 let nextIndex=0,rafId=null,showUntil=0;
 
+// ヘルプから戻る先（"edit" or "timer"）
+let lastScreen="edit";
+
 function toB64(str){return btoa(unescape(encodeURIComponent(str)));}
 function fromB64(b64){return decodeURIComponent(escape(atob(b64)));}
 
 function baseUrl(){return location.origin+location.pathname;}
 
 async function copy(text){
-try{await navigator.clipboard.writeText(text);}
-catch{alert(text);}
+  try{ await navigator.clipboard.writeText(text); }
+  catch{ alert(text); }
 }
 
-function show(edit){
-screenEdit.classList.toggle("hidden",!edit);
-screenTimer.classList.toggle("hidden",edit);
+function show(which){
+  screenEdit.classList.add("hidden");
+  screenTimer.classList.add("hidden");
+  screenHelp.classList.add("hidden");
+  if(which==="edit") screenEdit.classList.remove("hidden");
+  if(which==="timer") screenTimer.classList.remove("hidden");
+  if(which==="help") screenHelp.classList.remove("hidden");
 }
 
 function parse(text){
-const arr=[];
-(text||"").split(/\n/).forEach(l=>{
-if(!l.trim()||l.startsWith("#"))return;
-const p=l.split(",");
-const t=parseFloat(p[0]);
-if(!isNaN(t)&&p[1])arr.push({tSec:t,text:p.slice(1).join(",").trim()});
-});
-return arr.sort((a,b)=>a.tSec-b.tSec);
+  const arr=[];
+  (text||"").split(/\n/).forEach(l=>{
+    const line=(l||"").trim();
+    if(!line || line.startsWith("#")) return;
+    const p=line.split(",");
+    const t=parseFloat(p[0]);
+    const label=p.slice(1).join(",").trim();
+    if(!isNaN(t) && label) arr.push({tSec:t,text:label});
+  });
+  return arr.sort((a,b)=>a.tSec-b.tSec);
 }
 
 function renderList(){
-cueListEl.innerHTML="";
-cues.forEach((c,i)=>{
-const d=document.createElement("div");
-d.textContent=c.tSec+"s  "+c.text;
-if(i<nextIndex)d.classList.add("done");
-else if(i===nextIndex)d.classList.add("active");
-cueListEl.appendChild(d);
-});
+  cueListEl.innerHTML="";
+  cues.forEach((c,i)=>{
+    const d=document.createElement("div");
+    d.textContent=c.tSec+"s  "+c.text;
+    if(i<nextIndex) d.classList.add("done");
+    else if(i===nextIndex) d.classList.add("active");
+    cueListEl.appendChild(d);
+  });
 }
 
 function fmt(ms){
-const s=ms/1000;
-const m=Math.floor(s/60);
-const sec=s-m*60;
-return String(m).padStart(2,"0")+":"+sec.toFixed(1).padStart(4,"0");
+  const s=ms/1000;
+  const m=Math.floor(s/60);
+  const sec=s-m*60;
+  const si=Math.floor(sec);
+  const d=Math.floor((sec-si)*10);
+  return String(m).padStart(2,"0")+":"+String(si).padStart(2,"0")+"."+d;
 }
 
-function nowMs(){return running?carried+(performance.now()-startTime):carried;}
+function nowMs(){ return running ? carried + (performance.now()-startTime) : carried; }
 
 function tick(){
-const e=nowMs();
-elapsedEl.textContent=fmt(e);
-const next=cues[nextIndex];
-if(next){
-const remain=next.tSec*1000-e;
-nextCueEl.textContent=next.tSec+"s : "+next.text;
-if(remain<=0){
-bigText.textContent=next.text;
-overlay.style.display="flex";
-showUntil=performance.now()+SHOW_MS;
-nextIndex++;
-renderList();
-}
-}else{
-nextCueEl.textContent="--";
-}
-if(overlay.style.display==="flex"&&performance.now()>=showUntil){
-overlay.style.display="none";
-}
-rafId=requestAnimationFrame(tick);
+  const e=nowMs();
+  elapsedEl.textContent=fmt(e);
+
+  const next=cues[nextIndex];
+  if(next){
+    const remainMs = next.tSec*1000 - e;
+    const remainSec = Math.max(0, remainMs/1000);
+    toNextEl.textContent = remainSec.toFixed(1);
+    nextCueEl.textContent = next.tSec+"s : "+next.text;
+
+    if(remainMs<=0){
+      bigText.textContent=next.text;
+      overlay.style.display="flex";
+      showUntil=performance.now()+SHOW_MS;
+      nextIndex++;
+      renderList();
+    }
+  }else{
+    toNextEl.textContent="--";
+    nextCueEl.textContent="--";
+  }
+
+  if(overlay.style.display==="flex" && performance.now()>=showUntil){
+    overlay.style.display="none";
+  }
+
+  rafId=requestAnimationFrame(tick);
 }
 
 function startTimer(){
-if(!cues.length){alert("キューが空です");return;}
-if(running)return;
-running=true;
-startTime=performance.now();
-rafId=requestAnimationFrame(tick);
+  if(!cues.length){ alert("キューが空です"); return; }
+  if(running) return;
+  running=true;
+  startTime=performance.now();
+  rafId=requestAnimationFrame(tick);
 }
 
 function pauseTimer(){
-if(!running)return;
-running=false;
-carried=nowMs();
-cancelAnimationFrame(rafId);
+  if(!running) return;
+  running=false;
+  carried=nowMs();
+  cancelAnimationFrame(rafId);
 }
 
 function resetTimer(){
-pauseTimer();
-carried=0;
-nextIndex=0;
-elapsedEl.textContent="00:00.0";
-nextCueEl.textContent="--";
-overlay.style.display="none";
-renderList();
+  pauseTimer();
+  carried=0;
+  nextIndex=0;
+  elapsedEl.textContent="00:00.0";
+  toNextEl.textContent="--";
+  nextCueEl.textContent="--";
+  overlay.style.display="none";
+  renderList();
 }
 
 function applyFromUrl(){
-const params=new URLSearchParams(location.search);
-const c=params.get(URL_PARAM);
-const isOwner=params.get(OWNER_PARAM)==="1";
+  const params=new URLSearchParams(location.search);
+  const c=params.get(URL_PARAM);
+  const isOwner=params.get(OWNER_PARAM)==="1";
 
-if(!c){ show(true); return; }
+  if(!c){
+    lastScreen="edit";
+    show("edit");
+    return;
+  }
 
-show(false);
+  lastScreen="timer";
+  show("timer");
 
-if(isOwner){
-roleText.innerHTML="🔐 管理者";
-backToEditBtn.classList.remove("hidden");
-copyViewBtn.classList.remove("hidden");
-backEmptyBtn.classList.remove("hidden");
-}else{
-roleText.innerHTML="👁 閲覧";
-backToEditBtn.classList.add("hidden");
-copyViewBtn.classList.add("hidden");
-backEmptyBtn.classList.add("hidden");
+  if(isOwner){
+    roleText.innerHTML="🔐 管理者";
+    backToEditBtn.classList.remove("hidden");
+    copyViewBtn.classList.remove("hidden");
+    backEmptyBtn.classList.remove("hidden"); // 管理者だけ
+  }else{
+    roleText.innerHTML="👁 閲覧";
+    backToEditBtn.classList.add("hidden");
+    copyViewBtn.classList.add("hidden");
+    backEmptyBtn.classList.add("hidden"); // 閲覧者は非表示
+  }
+
+  cues=parse(fromB64(c));
+  resetTimer();
 }
 
-cues=parse(fromB64(c));
-renderList();
-}
+/* ===== ボタン動作 ===== */
+helpBtn.onclick=()=>{ lastScreen="edit"; show("help"); };
+helpBtn2.onclick=()=>{ lastScreen="timer"; show("help"); };
+closeHelpBtn.onclick=()=>{ show(lastScreen); };
 
 saveAdminBtn.onclick=async()=>{
-const text=cueTextEl.value;
-if(!text.trim()){alert("キューが空です");return;}
-const u=new URL(baseUrl());
-u.searchParams.set(URL_PARAM,toB64(text));
-u.searchParams.set(OWNER_PARAM,"1");
-await copy(u.toString());
-location.href=u.toString();
+  const text=cueTextEl.value||"";
+  if(!text.trim()){ alert("キューが空です"); return; }
+  const u=new URL(baseUrl());
+  u.searchParams.set(URL_PARAM,toB64(text));
+  u.searchParams.set(OWNER_PARAM,"1");
+  await copy(u.toString());
+  location.href=u.toString();
 };
 
 copyViewBtn.onclick=async()=>{
-const params=new URLSearchParams(location.search);
-const c=params.get(URL_PARAM);
-if(!c)return;
-const u=new URL(baseUrl());
-u.searchParams.set(URL_PARAM,c);
-await copy(u.toString());
+  const params=new URLSearchParams(location.search);
+  const c=params.get(URL_PARAM);
+  if(!c) return;
+  const u=new URL(baseUrl());
+  u.searchParams.set(URL_PARAM,c); // owner無し=閲覧
+  await copy(u.toString());
 };
 
 backToEditBtn.onclick=()=>{
-show(true);
-cueTextEl.value=fromB64(new URLSearchParams(location.search).get(URL_PARAM)||"");
+  lastScreen="edit";
+  show("edit");
+  cueTextEl.value=fromB64(new URLSearchParams(location.search).get(URL_PARAM)||"");
 };
 
 backEmptyBtn.onclick=()=>location.href=baseUrl();
@@ -339,6 +435,7 @@ startBtn.onclick=startTimer;
 pauseBtn.onclick=pauseTimer;
 resetBtn.onclick=resetTimer;
 
+/* ===== 起動 ===== */
 applyFromUrl();
 </script>
 </body>
