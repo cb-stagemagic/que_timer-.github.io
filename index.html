@@ -13,12 +13,10 @@ body{
   color:#fff;
   font-family:system-ui,-apple-system,"Hiragino Sans",sans-serif;
 }
-.wrap{ padding:16px; display:flex; flex-direction:column; gap:12px; }
-h1{
-  margin:0 0 6px 0;
-  font-size:22px;
-  letter-spacing:0.2px;
-}
+.wrap{ padding:16px; display:flex; flex-direction:column; gap:12px; min-height:100vh; box-sizing:border-box; }
+h1{ margin:0 0 6px 0; font-size:22px; letter-spacing:.2px; }
+.row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+
 button{
   font-size:16px;
   padding:10px 14px;
@@ -28,8 +26,8 @@ button{
   color:#fff;
 }
 button.primary{ border-color:#888; }
-button.danger{ border-color:#600; background:#200; }
 button.admin{ border-color:#2a6; background:#083; }
+button.danger{ border-color:#600; background:#200; }
 
 .card{
   border:1px solid #333;
@@ -39,11 +37,11 @@ button.admin{ border-color:#2a6; background:#083; }
 }
 
 .label{ opacity:.7; font-size:13px; }
-.val{ font-size:28px; font-variant-numeric:tabular-nums; }
+.val{ font-size:28px; font-variant-numeric:tabular-nums; margin-top:6px; }
 
 textarea{
   width:100%;
-  min-height:160px;
+  min-height:220px;
   background:#050505;
   color:#fff;
   border:1px solid #333;
@@ -54,11 +52,8 @@ textarea{
   line-height:1.5;
 }
 textarea::placeholder{ color:#9a9a9a; }
-textarea.locked{
-  background:#111;
-  color:#888;
-  border-color:#222;
-}
+
+.small{ font-size:13px; opacity:.75; line-height:1.55; }
 
 .overlay{
   position:fixed;
@@ -67,20 +62,12 @@ textarea.locked{
   display:none;
   align-items:center;
   justify-content:center;
+  padding:24px;
 }
 .big{
   font-size:min(18vw,120px);
   font-weight:800;
   text-align:center;
-}
-.sub{
-  position:fixed;
-  bottom:16px;
-  left:0;
-  right:0;
-  text-align:center;
-  font-size:18px;
-  opacity:.8;
 }
 .signature{
   position:fixed;
@@ -93,6 +80,7 @@ textarea.locked{
   pointer-events:none;
   user-select:none;
 }
+
 pre{
   margin:10px 0 0 0;
   padding:10px 12px;
@@ -102,23 +90,64 @@ pre{
   overflow:auto;
   white-space:pre-wrap;
 }
-.small-note{ font-size:13px; opacity:.8; }
-.notice{ font-size:13px; color:#f66; }
+
+.hidden{ display:none !important; }
 </style>
 </head>
 
 <body>
 
-<div id="screenTimer" class="wrap">
+<!-- ========== 入力ページ（初期表示） ========== -->
+<div id="screenEdit" class="wrap">
   <h1>Que Timer</h1>
 
-  <div>
+  <div class="row">
+    <button id="helpBtn">❓ 使い方</button>
+    <button id="copyBaseBtn">🏠 通常URLをコピー</button>
+  </div>
+
+  <div class="card">
+    <div class="label">キュー入力</div>
+    <textarea id="cueText" placeholder="ここにキューを入力（例：7, ①を起動）"></textarea>
+    <div class="small" style="margin-top:10px;">
+      ・形式：<b>秒数, 指示</b><br>
+      ・小数OK（例：18.5）<br>
+      ・# から始まる行はコメント（無視）
+    </div>
+  </div>
+
+  <div class="row">
+    <button id="toTimerBtn" class="primary">▶ タイマーへ（保存なし）</button>
+    <button id="copyViewBtn">🔗 Copy link（閲覧）</button>
+    <button id="saveAdminBtn" class="admin">🔐 保存（管理者リンク生成）</button>
+  </div>
+
+  <div class="card">
+    <div class="label">メモ</div>
+    <div class="small">
+      ✅ 通常URLは保存されません（開き直すと空になります）。<br>
+      ✅ 「Copy link（閲覧）」は <b>閲覧専用</b>（編集不可）です。<br>
+      ✅ 「保存」は<b>管理者リンク</b>を作るだけです。<br>
+      ✅ 管理者リンクを共有すれば、複数人で同じキューを編集できます。
+    </div>
+  </div>
+</div>
+
+<!-- ========== タイマー画面 ========== -->
+<div id="screenTimer" class="wrap hidden">
+  <h1>Que Timer</h1>
+
+  <div class="row">
     <button id="startBtn" class="primary">▶ Start</button>
     <button id="pauseBtn">⏸ Pause</button>
     <button id="resetBtn" class="danger">Reset</button>
-    <button id="copyViewBtn">🔗 Copy link（閲覧）</button>
-    <button id="copyAdminBtn" class="admin">🔐 Copy link（管理者）</button>
-    <button id="helpBtn">❓ 使い方</button>
+    <button id="helpBtn2">❓ 使い方</button>
+
+    <!-- 管理者リンクのみ表示（タイマーから編集へ戻る） -->
+    <button id="backToEditBtn" class="hidden">✎ 編集へ</button>
+
+    <!-- 管理者/閲覧者どちらでも押せば「キュー空の入力ページ」へ -->
+    <button id="backEmptyBtn">← キュー入力へ（保存なし）</button>
   </div>
 
   <div class="card">
@@ -137,190 +166,331 @@ pre{
   </div>
 
   <div class="card">
-    <div class="label">キュー入力</div>
-    <textarea id="cueText" placeholder="ここにキューを入力"></textarea>
-    <div id="lockNotice" class="notice" style="display:none;">
-      ※ 閲覧モードでは編集できません（管理者リンクで開いてください）
-    </div>
-  </div>
-
-  <div class="card" id="adminSaveCard" style="display:none;">
-    <div class="label">管理者保存</div>
-    <button id="saveBtn" class="primary">💾 保存（管理者のみ）</button>
+    <div class="label">このリンクの権限</div>
+    <div class="small" id="roleText">--</div>
   </div>
 </div>
 
-<div id="screenHelp" class="wrap" style="display:none;">
+<!-- ========== ヘルプ画面 ========== -->
+<div id="screenHelp" class="wrap hidden">
   <h1>Que Timer</h1>
 
   <div class="card">
-    <p><b>リンクの種類（重要）</b></p>
-    <p>
-      🔗 Copy link（閲覧）：<br>
-      → 演目を共有するためのリンクです。<br>
-      → キューは編集できません。<br><br>
-
-      🔐 Copy link（管理者）：<br>
-      → 作成者のみ保持してください。<br>
-      → キュー編集・保存が可能です。
+    <p><b>入力形式：</b><br>
+    「開始からの秒数, 指示内容」で入力します。</p>
+    <p class="small">
+      ・秒数は開始からの絶対秒<br>
+      ・小数使用可（例：18.5）<br>
+      ・# で始まる行はコメント（無視）
     </p>
   </div>
 
-  <button id="backBtn">← タイマーへ戻る</button>
+  <div class="card">
+    <p><b>例１</b></p>
+    <pre># ===== 例１ =====
+
+7, ①を起動
+14, ②を起動
+18.5, ③を起動</pre>
+  </div>
+
+  <div class="card">
+    <p><b>例２</b></p>
+    <pre># ===== 例２ =====
+
+5, ピンC.I.
+348, ピンマスクアウト</pre>
+  </div>
+
+  <div class="card">
+    <p><b>リンク運用（重要）</b></p>
+    <p class="small">
+      ・<b>通常URL</b>：保存なし。開き直すとキューは空。誰でも開ける。<br>
+      ・<b>閲覧リンク</b>（c=...）：閲覧のみ（タイマー実行用 / 編集不可）。<br>
+      ・<b>管理者リンク</b>（c=...&owner=1）：編集可能。共有すれば複数人で管理できます。
+    </p>
+  </div>
+
+  <button id="closeHelpBtn">← 戻る</button>
 </div>
 
 <div class="overlay" id="overlay">
   <div class="big" id="bigText"></div>
-  <div class="sub" id="subText"></div>
 </div>
 
 <div class="signature">CB · Que Timer</div>
 
 <script>
-const STORAGE_KEY="cueTimer.v6";
-const URL_PARAM="c";
-const OWNER_PARAM="owner";
-const SHOW_MS=900;
+const URL_PARAM = "c";
+const OWNER_PARAM = "owner";
+const SHOW_MS = 900;
 
-const $=id=>document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 
-const startBtn=$("startBtn");
-const pauseBtn=$("pauseBtn");
-const resetBtn=$("resetBtn");
-const copyViewBtn=$("copyViewBtn");
-const copyAdminBtn=$("copyAdminBtn");
-const helpBtn=$("helpBtn");
-const backBtn=$("backBtn");
-const saveBtn=$("saveBtn");
-const adminSaveCard=$("adminSaveCard");
-const cueTextEl=$("cueText");
-const lockNotice=$("lockNotice");
+const screenEdit = $("screenEdit");
+const screenTimer = $("screenTimer");
+const screenHelp = $("screenHelp");
 
-const elapsedEl=$("elapsed");
-const toNextEl=$("toNext");
-const nextCueEl=$("nextCue");
-const overlay=$("overlay");
-const bigText=$("bigText");
+const cueTextEl = $("cueText");
 
-let cues=[],running=false,startTime=0,carried=0,nextIndex=0,rafId=null,showUntil=0;
+const helpBtn = $("helpBtn");
+const helpBtn2 = $("helpBtn2");
+const closeHelpBtn = $("closeHelpBtn");
+
+const copyBaseBtn = $("copyBaseBtn");
+const copyViewBtn = $("copyViewBtn");
+const toTimerBtn = $("toTimerBtn");
+const saveAdminBtn = $("saveAdminBtn");
+
+const startBtn = $("startBtn");
+const pauseBtn = $("pauseBtn");
+const resetBtn = $("resetBtn");
+const backToEditBtn = $("backToEditBtn");
+const backEmptyBtn = $("backEmptyBtn");
+
+const elapsedEl = $("elapsed");
+const toNextEl = $("toNext");
+const nextCueEl = $("nextCue");
+const roleText = $("roleText");
+
+const overlay = $("overlay");
+const bigText = $("bigText");
+
+let cues = [];
+let running = false;
+let startTime = 0;
+let carried = 0;
+let nextIndex = 0;
+let rafId = null;
+let showUntil = 0;
 
 function toB64(str){ return btoa(unescape(encodeURIComponent(str))); }
 function fromB64(b64){ return decodeURIComponent(escape(atob(b64))); }
 
-function parseCues(){
-  const lines=(cueTextEl.value||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  const parsed=[];
+function baseUrl(){
+  // パラメータ無しの「通常URL」
+  return location.origin + location.pathname;
+}
+
+async function copyToClipboard(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    return true;
+  }catch{
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  }
+}
+
+function show(which){
+  screenEdit.classList.add("hidden");
+  screenTimer.classList.add("hidden");
+  screenHelp.classList.add("hidden");
+  if(which === "edit") screenEdit.classList.remove("hidden");
+  if(which === "timer") screenTimer.classList.remove("hidden");
+  if(which === "help") screenHelp.classList.remove("hidden");
+}
+
+function parseCuesFromText(text){
+  const lines = (text || "")
+    .split(/\r?\n/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const parsed = [];
   for(const line of lines){
     if(line.startsWith("#")) continue;
-    const parts=line.split(",");
-    const t=parseFloat(parts[0]);
-    const text=parts.slice(1).join(",").trim();
-    if(!isNaN(t)&&text) parsed.push({tSec:t,text});
+    const parts = line.split(",");
+    const t = parseFloat(parts[0]);
+    const label = parts.slice(1).join(",").trim();
+    if(!isNaN(t) && label) parsed.push({ tSec: t, text: label });
   }
   parsed.sort((a,b)=>a.tSec-b.tSec);
-  cues=parsed;
+  return parsed;
 }
 
 function fmt(ms){
-  const s=ms/1000;
-  const m=Math.floor(s/60);
-  const sec=s-m*60;
-  const si=Math.floor(sec);
-  const d=Math.floor((sec-si)*10);
+  const s = ms/1000;
+  const m = Math.floor(s/60);
+  const sec = s - m*60;
+  const si = Math.floor(sec);
+  const d = Math.floor((sec-si)*10);
   return String(m).padStart(2,"0")+":"+String(si).padStart(2,"0")+"."+d;
 }
 
-function nowMs(){ return running?carried+(performance.now()-startTime):carried; }
+function nowMs(){ return running ? carried + (performance.now() - startTime) : carried; }
 
 function tick(){
-  const e=nowMs();
-  elapsedEl.textContent=fmt(e);
-  const next=cues[nextIndex];
+  const e = nowMs();
+  elapsedEl.textContent = fmt(e);
+
+  const next = cues[nextIndex];
   if(next){
-    const remain=next.tSec*1000-e;
-    toNextEl.textContent=remain>0?(remain/1000).toFixed(1):"0.0";
-    nextCueEl.textContent=next.tSec+"s : "+next.text;
-    if(remain<=0){
-      bigText.textContent=next.text;
-      overlay.style.display="flex";
-      showUntil=performance.now()+SHOW_MS;
+    const remain = next.tSec*1000 - e;
+    toNextEl.textContent = remain>0 ? (remain/1000).toFixed(1) : "0.0";
+    nextCueEl.textContent = next.tSec + "s : " + next.text;
+
+    if(remain <= 0){
+      bigText.textContent = next.text;
+      overlay.style.display = "flex";
+      showUntil = performance.now() + SHOW_MS;
       nextIndex++;
     }
+  }else{
+    toNextEl.textContent = "--";
+    nextCueEl.textContent = "--";
   }
-  if(overlay.style.display==="flex"&&performance.now()>=showUntil){
-    overlay.style.display="none";
+
+  if(overlay.style.display==="flex" && performance.now() >= showUntil){
+    overlay.style.display = "none";
   }
-  rafId=requestAnimationFrame(tick);
+
+  rafId = requestAnimationFrame(tick);
 }
 
-startBtn.onclick=()=>{
-  parseCues();
+function startTimer(){
   if(!cues.length){
-    alert("キューを入力してください。");
+    alert("キューが空です。\n例：7, ①を起動");
     return;
   }
-  running=true;
-  startTime=performance.now();
-  rafId=requestAnimationFrame(tick);
-};
+  running = true;
+  startTime = performance.now();
+  rafId = requestAnimationFrame(tick);
+}
 
-pauseBtn.onclick=()=>{
-  running=false;
-  carried=nowMs();
+function pauseTimer(){
+  if(!running) return;
+  running = false;
+  carried = nowMs();
   cancelAnimationFrame(rafId);
+}
+
+function resetTimer(){
+  pauseTimer();
+  carried = 0;
+  nextIndex = 0;
+  elapsedEl.textContent = "00:00.0";
+  toNextEl.textContent = "--";
+  nextCueEl.textContent = "--";
+  overlay.style.display = "none";
+}
+
+function applyFromUrl(){
+  const params = new URLSearchParams(location.search);
+  const c = params.get(URL_PARAM);
+  const isOwner = params.get(OWNER_PARAM) === "1";
+
+  if(!c){
+    // パラメータ無しは入力ページ（キュー空）
+    cueTextEl.value = "";
+    show("edit");
+    return;
+  }
+
+  // タイマー画面
+  show("timer");
+
+  // 権限表示＆編集ボタン
+  if(isOwner){
+    roleText.innerHTML = "🔐 <b>管理者</b>（このリンクを共有すると複数人で編集できます）";
+    backToEditBtn.classList.remove("hidden");
+  }else{
+    roleText.innerHTML = "👁 <b>閲覧</b>（タイマー実行のみ / 編集不可）";
+    backToEditBtn.classList.add("hidden");
+  }
+
+  // デコードしてキュー確定
+  let cueText = "";
+  try{ cueText = fromB64(c); }catch{ cueText = ""; }
+  cues = parseCuesFromText(cueText);
+  resetTimer();
+}
+
+function goToTimerWith(text, ownerFlag){
+  const u = new URL(baseUrl());
+  u.searchParams.set(URL_PARAM, toB64(text || ""));
+  if(ownerFlag) u.searchParams.set(OWNER_PARAM, "1");
+  location.href = u.toString();
+}
+
+/* ====== UI wiring ====== */
+helpBtn.onclick = () => show("help");
+helpBtn2.onclick = () => show("help");
+
+closeHelpBtn.onclick = () => {
+  // URL状態で戻す
+  applyFromUrl();
 };
 
-resetBtn.onclick=()=>{
-  running=false;
-  carried=0;
-  nextIndex=0;
-  overlay.style.display="none";
+copyBaseBtn.onclick = async () => {
+  const url = baseUrl();
+  const ok = await copyToClipboard(url);
+  if(!ok) alert(url);
 };
 
-copyViewBtn.onclick=async()=>{
-  const u=new URL(location.href);
-  u.searchParams.set(URL_PARAM,toB64(cueTextEl.value||""));
+copyViewBtn.onclick = async () => {
+  const text = cueTextEl.value || "";
+  if(!text.trim()){
+    alert("キューが空です。\n例：7, ①を起動");
+    return;
+  }
+  const u = new URL(baseUrl());
+  u.searchParams.set(URL_PARAM, toB64(text));
   u.searchParams.delete(OWNER_PARAM);
-  await navigator.clipboard.writeText(u.toString());
+  const ok = await copyToClipboard(u.toString());
+  if(!ok) alert(u.toString());
 };
 
-copyAdminBtn.onclick=async()=>{
-  const u=new URL(location.href);
-  u.searchParams.set(URL_PARAM,toB64(cueTextEl.value||""));
-  u.searchParams.set(OWNER_PARAM,"1");
-  await navigator.clipboard.writeText(u.toString());
+toTimerBtn.onclick = () => {
+  // 保存なし：閲覧リンクとしてタイマーへ遷移
+  const text = cueTextEl.value || "";
+  if(!text.trim()){
+    alert("キューが空です。\n例：7, ①を起動");
+    return;
+  }
+  goToTimerWith(text, false);
 };
 
-const params=new URLSearchParams(location.search);
-const isOwner=params.get(OWNER_PARAM)==="1";
-
-if(!isOwner){
-  cueTextEl.readOnly=true;
-  cueTextEl.classList.add("locked");
-  lockNotice.style.display="block";
-}else{
-  adminSaveCard.style.display="block";
-}
-
-saveBtn.onclick=()=>{
-  localStorage.setItem(STORAGE_KEY,cueTextEl.value||"");
-  alert("管理者保存しました");
+saveAdminBtn.onclick = async () => {
+  // 保存＝管理者リンク生成：コピーしてから、そのリンクへ遷移
+  const text = cueTextEl.value || "";
+  if(!text.trim()){
+    alert("キューが空です。\n例：7, ①を起動");
+    return;
+  }
+  const u = new URL(baseUrl());
+  u.searchParams.set(URL_PARAM, toB64(text));
+  u.searchParams.set(OWNER_PARAM, "1");
+  await copyToClipboard(u.toString());
+  location.href = u.toString();
 };
 
-const urlData=params.get(URL_PARAM);
-if(urlData){
-  try{
-    cueTextEl.value=fromB64(urlData);
-    if(isOwner){
-      localStorage.setItem(STORAGE_KEY,cueTextEl.value||"");
-    }
-  }catch{}
-}else if(isOwner){
-  const saved=localStorage.getItem(STORAGE_KEY);
-  if(saved) cueTextEl.value=saved;
-}
+startBtn.onclick = startTimer;
+pauseBtn.onclick = pauseTimer;
+resetBtn.onclick = resetTimer;
 
-parseCues();
+backToEditBtn.onclick = () => {
+  // 管理者リンクからのみ：編集ページへ戻す（URLのキューを入力欄へ復元）
+  show("edit");
+  const params = new URLSearchParams(location.search);
+  const c = params.get(URL_PARAM);
+  if(c){
+    try{ cueTextEl.value = fromB64(c); }catch{}
+  }
+};
+
+backEmptyBtn.onclick = () => {
+  // 管理者/閲覧者どちらでも：キュー空の入力ページへ
+  location.href = baseUrl();
+};
+
+/* ====== Boot ====== */
+applyFromUrl();
 </script>
 
 </body>
