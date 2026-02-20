@@ -69,15 +69,6 @@ textarea::placeholder{
   font-weight:800;
   text-align:center;
 }
-.sub{
-  position:fixed;
-  bottom:16px;
-  left:0;
-  right:0;
-  text-align:center;
-  font-size:18px;
-  opacity:.8;
-}
 .signature{
   position:fixed;
   right:14px;
@@ -150,20 +141,20 @@ pre{
   </div>
 
   <div class="card">
-    <p><b>例１</b></p>
-    <pre># ===== 例１ =====
-
+    <p><b>例1</b></p>
+    <pre>
 7, ①を起動
 14, ②を起動
-18.5, ③を起動</pre>
+18.5, ③を起動
+    </pre>
   </div>
 
   <div class="card">
-    <p><b>例２</b></p>
-    <pre># ===== 例２ =====
-
+    <p><b>例2</b></p>
+    <pre>
 5, ピンC.I.
-348, ピンマスクアウト</pre>
+348, ピンマスクアウト
+    </pre>
   </div>
 
   <div class="card">
@@ -181,13 +172,12 @@ pre{
 
 <div class="overlay" id="overlay">
   <div class="big" id="bigText"></div>
-  <div class="sub" id="subText"></div>
 </div>
 
 <div class="signature">CB · Que Timer</div>
 
 <script>
-const STORAGE_KEY="cueTimer.v4";
+const STORAGE_KEY="cueTimer.v5";
 const URL_PARAM="c";
 const SHOW_MS=900;
 
@@ -210,7 +200,6 @@ const cueTextEl=$("cueText");
 
 const overlay=$("overlay");
 const bigText=$("bigText");
-const subText=$("subText");
 
 let cues=[],running=false,startTime=0,carried=0,nextIndex=0,rafId=null,showUntil=0;
 
@@ -318,7 +307,6 @@ cueTextEl.oninput=()=>{
   try{ localStorage.setItem(STORAGE_KEY, cueTextEl.value || ""); }catch{}
 };
 
-// URL優先 → なければ端末保存
 const urlData = new URLSearchParams(location.search).get(URL_PARAM);
 if(urlData){
   try{
